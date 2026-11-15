@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#f3efe6">
+<title>Receipt Photobooth</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bebas+Neue&family=Pacifico&family=Playfair+Display:wght@500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main id="app">
+
+  <!-- Welcome -->
+  <section class="screen active" data-screen="welcome">
+    <div class="welcome">
+      <p class="eyebrow">* * * * * * * * * * * *</p>
+      <h1 id="welcomeTitle">PHOTOBOOTH</h1>
+      <p class="welcome-sub" id="welcomeSub">Your photos, printed like a receipt.</p>
+      <button class="btn btn-primary btn-xl" id="startBtn">Tap to start</button>
+      <p class="eyebrow">* * * * * * * * * * * *</p>
+    </div>
+  </section>
+
+  <!-- Layout select -->
+  <section class="screen" data-screen="layout">
+    <header class="bar">
+      <button class="btn btn-ghost" data-go="welcome">&larr; Back</button>
+      <h2>Pick your layout</h2>
+      <span class="bar-spacer"></span>
+    </header>
+    <div class="layouts" id="layouts"></div>
+  </section>
+
+  <!-- Capture -->
+  <section class="screen" data-screen="capture">
+    <header class="bar">
+      <button class="btn btn-ghost" id="captureCancel">&larr; Cancel</button>
+      <h2 id="captureLabel">Get ready</h2>
+      <span class="bar-spacer"></span>
+    </header>
+    <div class="stage">
+      <div class="viewfinder" id="viewfinder">
+        <video id="video" playsinline muted></video>
+        <img id="frozen" alt="" hidden>
+        <div class="count" id="count" hidden></div>
+        <div class="flash" id="flash"></div>
+        <div class="cam-error" id="camError" hidden>
+          <p id="camErrorText"></p>
+          <div class="row">
+            <button class="btn btn-primary" id="camRetry">Try again</button>
+            <label class="btn btn-ghost">Use photos from this device
+              <input type="file" id="fileInput" accept="image/*" multiple hidden>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="dots" id="dots"></div>
+      <button class="btn btn-primary btn-xl" id="shootBtn">Start</button>
+    </div>
+  </section>
+
+  <!-- Result -->
+  <section class="screen" data-screen="result">
+    <header class="bar">
+      <button class="btn btn-ghost" id="doneBtn">Done</button>
+      <h2>Your receipt</h2>
+      <span class="bar-spacer" id="idleNote"></span>
+    </header>
+    <div class="result">
+      <div class="paper-wrap">
+        <div class="paper"><canvas id="preview"></canvas></div>
+      </div>
+      <aside class="controls">
+        <h3>Filter</h3>
+        <div class="chips" id="filters"></div>
+        <h3>Tap a photo to retake it</h3>
+        <div class="thumbs" id="thumbs"></div>
+        <h3>Copies</h3>
+        <div class="stepper">
+          <button class="btn btn-ghost" id="copiesMinus" aria-label="Fewer copies">&minus;</button>
+          <output id="copies">1</output>
+          <button class="btn btn-ghost" id="copiesPlus" aria-label="More copies">+</button>
+        </div>
+        <button class="btn btn-primary btn-xl" id="printBtn">Print</button>
+        <button class="btn btn-ghost" id="saveBtn">Save image</button>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<button id="gear" aria-label="Kiosk settings" title="Kiosk settings">&#9881;</button>
+<div id="toast" role="status" hidden></div>
+
+<!-- PIN -->
+<dialog id="pinDlg">
+  <form method="dialog" class="pin">
+    <h3>Enter PIN</h3>
+    <p class="hint">To open the kiosk settings.</p>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="PIN">
+    <p class="err" id="pinErr" hidden>Wrong PIN.</p>
+    <div class="row">
+      <button class="btn btn-ghost" type="button" id="pinCancel">Cancel</button>
+      <button class="btn btn-primary" id="pinOk" value="ok">Open</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Settings -->
+<dialog id="settingsDlg">
+  <div class="settings">
+    <header class="bar">
+      <h2>Kiosk settings</h2>
+      <button class="btn btn-primary" id="settingsClose">Close</button>
+    </header>
+    <div class="settings-body">
+      <div class="settings-form">
+        <fieldset>
+          <legend>Printer</legend>
+          <label>Connection
+            <select data-k="connection">
+              <option value="usb">USB (ESC/POS)</option>
+              <option value="bluetooth">Bluetooth LE (ESC/POS)</option>
+              <option value="serial">Serial / COM port (ESC/POS)</option>
+              <option value="browser">Browser print dialog</option>
+            </select>
+          </label>
+          <label>Paper width
+            <select data-k="paperWidth" data-num>
+              <option value="58">58 mm (384 dots)</option>
+              <option value="80">80 mm (576 dots)</option>
+            </select>
+          </label>
+          <label>Serial baud rate
+            <select data-k="baud" data-num>
+              <option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option>
+            </select>
+          </label>
+          <label>Raster mode
+            <select data-k="chunkRows" data-num>
+              <option value="0">Single block (GS v 0)</option>
+              <option value="128">Chunked, 128 rows</option>
+              <option value="24">Chunked, 24 rows (slow printers)</option>
+            </select>
+          </label>
+          <label>Bottom feed lines <input type="number" min="0" max="20" data-k="feedLines"></label>
+          <label class="check"><input type="checkbox" data-k="cut"> Cut paper after printing</label>
+          <p class="status" id="printerStatus">Not connected.</p>
+          <div class="row">
+            <button class="btn btn-ghost" id="connectBtn">Connect printer</button>
+            <button class="btn btn-ghost" id="testBtn">Test print</button>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Print tuning</legend>
+          <label>Dither
+            <select data-k="dither" id="ditherSel"></select>
+          </label>
+          <label>Print brightness <output></output>
+            <input type="range" min="-50" max="50" step="1" data-k="brightness">
+          </label>
+          <label>Contrast <output></output>
+            <input type="range" min="-50" max="50" step="1" data-k="contrast">
+          </label>
+          <label>Gamma <output></output>
+            <input type="range" min="0.5" max="2" step="0.05" data-k="gamma">
+          </label>
+          <label>Sharpen <output></output>
+            <input type="range" min="0" max="100" step="5" data-k="sharpen">
+          </label>
+          <label class="check"><input type="checkbox" data-k="autoLevels"> Auto levels</label>
+          <p class="hint">Lower brightness if prints are too faint, raise it if they blot.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Receipt</legend>
+          <label>Title <input type="text" maxlength="24" data-k="title"></label>
+          <label>Title font <select data-k="titleFont" id="fontSel"></select></label>
+          <label>Subtitle <input type="text" maxlength="40" data-k="subtitle"></label>
+          <label>Footer message <input type="text" maxlength="80" data-k="footer"></label>
+          <label class="check"><input type="checkbox" data-k="showDate"> Print date and time</label>
+          <label class="check"><input type="checkbox" data-k="receiptLines"> Receipt details (order no., total, barcode)</label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Capture</legend>
+          <label>Camera <select data-k="cameraId" id="cameraSel"><option value="">Default camera</option></select></label>
+          <label>Countdown before capture (seconds) <input type="number" min="1" max="10" data-k="countdown"></label>
+          <label class="check"><input type="checkbox" data-k="mirror"> Mirror the camera</label>
+          <label class="check"><input type="checkbox" data-k="sound"> Countdown and shutter sounds</label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Kiosk</legend>
+          <label>Maximum copies per session <input type="number" min="1" max="10" data-k="copiesMax"></label>
+          <label>Seconds on the result screen <input type="number" min="15" max="600" data-k="resultIdle"></label>
+          <label>Settings PIN (4 digits, blank for none) <input type="text" inputmode="numeric" maxlength="4" data-k="pin"></label>
+          <div class="row">
+            <button class="btn btn-ghost" id="fsBtn">Full screen</button>
+            <button class="btn btn-ghost" id="resetBtn">Reset to defaults</button>
+          </div>
+        </fieldset>
+      </div>
+      <div class="settings-preview">
+        <p class="hint">Live test pattern with the current tuning</p>
+        <div class="paper"><canvas id="testPreview"></canvas></div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<div id="printArea"><img id="printImg" alt=""></div>
+
+<script src="js/imaging.js"></script>
+<script src="js/compose.js"></script>
+<script src="js/escpos.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
